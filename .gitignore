@@ -164,3 +164,4 @@ cython_debug/
 *.pkl
 *.bin
 .ruff_cache/
+input.txt
