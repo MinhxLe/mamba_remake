@@ -1,10 +1,8 @@
-from functools import partial
 import jax
 import jax.numpy as np
-from numpy import who
 from flax import linen as nn
-from jax.nn.initializers import lecun_normal, normal
-from jax.numpy.linalg import eigh, inv, matrix_power
+from jax.nn.initializers import lecun_normal
+from jax.numpy.linalg import matrix_power
 from jax.scipy.signal import convolve
 
 

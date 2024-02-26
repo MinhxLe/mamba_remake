@@ -110,8 +110,7 @@ def create_train_state(
         lr_layer = {}
 
     optimizers = {
-        k: optax.adam(learning_rate=schedule_fn(v * lr))
-        for k, v in lr_layer.items()
+        k: optax.adam(learning_rate=schedule_fn(v * lr)) for k, v in lr_layer.items()
     }
     # Add default optimizer
     # Note: it would be better to use a dummy key such as None that can't conflict with parameter names,
@@ -142,9 +141,7 @@ def create_train_state(
     print(f"[*] Trainable Parameters: {sum(jax.tree_leaves(param_sizes))}")
     print(f"[*] Total training steps: {total_steps}")
 
-    return train_state.TrainState.create(
-        apply_fn=model.apply, params=params, tx=tx
-    )
+    return train_state.TrainState.create(apply_fn=model.apply, params=params, tx=tx)
 
 
 # We also use this opportunity to write generic train_epoch and validation functions. These functions generally
@@ -221,9 +218,7 @@ class FeedForwardModel(nn.Module):
 
 
 @partial(jax.jit, static_argnums=(4, 5))
-def train_step(
-    state, rng, batch_inputs, batch_labels, model, classification=False
-):
+def train_step(state, rng, batch_inputs, batch_labels, model, classification=False):
     def loss_fn(params):
         logits, mod_vars = model.apply(
             {"params": params},
@@ -273,9 +268,7 @@ class LSTMRecurrentModel(nn.Module):
             split_rngs={"params": False},
         )
         dummy_rng = jax.random.PRNGKey(0)
-        self.init_h = nn.OptimizedLSTMCell.initialize_carry(
-            dummy_rng, (), self.d_model
-        )
+        self.init_h = nn.OptimizedLSTMCell.initialize_carry(dummy_rng, (), self.d_model)
         self.LSTM = LSTM(name="lstm_cell")
 
     def __call__(self, xs):
@@ -390,9 +383,7 @@ def example_train(
                     sample_image_prefix, imshape=(28, 28)
                 )  # params=state["params"], length=784, bsz=64, prefix=train.sample)
             else:
-                raise NotImplementedError(
-                    "Sampling currently only supported for MNIST"
-                )
+                raise NotImplementedError("Sampling currently only supported for MNIST")
 
             # model_cls = partial(
             #     BatchStackedModel,
@@ -457,9 +448,7 @@ def main(cfg: DictConfig) -> None:
     # Track with wandb
     if wandb is not None:
         wandb_cfg = cfg.pop("wandb")
-        wandb.init(
-            **wandb_cfg, config=OmegaConf.to_container(cfg, resolve=True)
-        )
+        wandb.init(**wandb_cfg, config=OmegaConf.to_container(cfg, resolve=True))
 
     example_train(**cfg)
 

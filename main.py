@@ -1,7 +1,4 @@
 from functools import partial
-import os
-
-from torch import embedding
 from data import Datasets
 
 from model import BatchStackedModel, SSMLayer
