@@ -1,0 +1,1 @@
+- The training task is a shifted window. Why is it not just next character?
