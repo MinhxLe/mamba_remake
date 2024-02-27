@@ -1,31 +1,52 @@
 from functools import partial
-from data import Datasets
-from flax.training import train_state
+
+import flax
 import jax
-from jax import numpy as np
 import optax
+from flax.training import train_state
+from jax import numpy as np
+from omegaconf import DictConfig
 from tqdm import tqdm
 
+from data import Datasets
 from model import BatchStackedModel, SSMLayer
+
+DEBUG_MODE = False
 
 dataset = "mnist-classification"
 classification = ("classification" in dataset,)
 key = jax.random.PRNGKey(0)
 key, rng, train_rng = jax.random.split(key, num=3)
 trainloader, testloader, n_classes, l_max, d_input = Datasets[dataset]()
-
 # initalizing the model
-MODEL_CONFIG = dict(
-    d_model=1,
-    n_layers=1,
-    dropout=0.0,
-    embedding=False,
-    layer=dict(
-        E=1,  # this has to be input size??
-        N=10,
-        l_max=l_max,
-    ),
-)
+if DEBUG_MODE:
+    num_epochs = 1
+    MODEL_CONFIG = dict(
+        d_model=8,
+        n_layers=2,
+        dropout=0.0,
+        embedding=False,
+        layer=DictConfig(
+            dict(
+                N=8,
+                l_max=l_max,
+            )
+        ),
+    )
+else:
+    num_epochs = 10
+    MODEL_CONFIG = dict(
+        d_model=128,
+        n_layers=64,
+        dropout=0.0,
+        embedding=False,
+        layer=DictConfig(
+            dict(
+                N=64,
+                l_max=l_max,
+            )
+        ),
+    )
 model_cls = partial(
     BatchStackedModel,
     layer_cls=SSMLayer,
@@ -69,7 +90,7 @@ def create_train_state(
         np.array(next(iter(trainloader))[0].numpy()),
     )
     # Note: Added immediate `unfreeze()` to play well w/ Optax. See below!
-    # params = params["params"].unfreeze()
+    params = flax.core.unfreeze(params["params"])
     # TODO: why?
 
     if lr_schedule:
@@ -110,6 +131,7 @@ def eval_step(batch_inputs, batch_labels, params, model, classification=False):
     if not classification:
         batch_labels = batch_inputs[:, :, 0]
     logits = model.apply({"params": params}, batch_inputs)
+    # TODO does cross entropy loss even make sense if it's not classification?
     loss = np.mean(cross_entropy_loss(logits, batch_labels))
     acc = np.mean(compute_accuracy(logits, batch_labels))
     return loss, acc
@@ -153,7 +175,6 @@ def train_step(state, rng, batch_inputs, batch_labels, model, classification=Fal
     return state, loss, acc
 
 
-num_epochs = 1
 state = create_train_state(
     rng,
     model_cls,
