@@ -11,7 +11,7 @@ from tqdm import tqdm
 from data import Datasets
 from model import BatchStackedModel, SSMLayer
 
-DEBUG_MODE = False
+DEBUG_MODE = True
 
 dataset = "mnist-classification"
 classification = ("classification" in dataset,)
@@ -153,7 +153,7 @@ def validate(params, model, testloader, classification=False):
     return np.mean(np.array(losses)), np.mean(np.array(accuracies))
 
 
-@partial(jax.jit, static_argnums=(4, 5))
+# @partial(jax.jit, static_argnums=(4, 5))
 def train_step(state, rng, batch_inputs, batch_labels, model, classification=False):
     def loss_fn(params):
         logits, mod_vars = model.apply(
@@ -171,6 +171,7 @@ def train_step(state, rng, batch_inputs, batch_labels, model, classification=Fal
 
     grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
     (loss, (logits, acc)), grads = grad_fn(state.params)
+    print(loss)
     state = state.apply_gradients(grads=grads)
     return state, loss, acc
 
