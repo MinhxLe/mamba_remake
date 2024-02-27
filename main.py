@@ -11,15 +11,11 @@ from tqdm import tqdm
 from data import Datasets
 from model import BatchStackedModel, SSMLayer
 
-DEBUG_MODE = True
+DEBUG_MODE = False
 
-dataset = "mnist-classification"
-classification = ("classification" in dataset,)
-key = jax.random.PRNGKey(0)
-key, rng, train_rng = jax.random.split(key, num=3)
-trainloader, testloader, n_classes, l_max, d_input = Datasets[dataset]()
-# initalizing the model
 if DEBUG_MODE:
+    dataset = "sin"
+    trainloader, testloader, n_classes, l_max, d_input = Datasets[dataset]()
     num_epochs = 1
     MODEL_CONFIG = dict(
         d_model=8,
@@ -34,6 +30,8 @@ if DEBUG_MODE:
         ),
     )
 else:
+    dataset = "mnist-classification"
+    trainloader, testloader, n_classes, l_max, d_input = Datasets[dataset]()
     num_epochs = 10
     MODEL_CONFIG = dict(
         d_model=128,
@@ -47,6 +45,10 @@ else:
             )
         ),
     )
+classification = ("classification" in dataset,)
+key = jax.random.PRNGKey(0)
+key, rng, train_rng = jax.random.split(key, num=3)
+# initalizing the model
 model_cls = partial(
     BatchStackedModel,
     layer_cls=SSMLayer,
