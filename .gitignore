@@ -6,3 +6,6 @@ __pycache__/
 *.bin
 .ruff_cache/
 input.txt
+
+venvmamba
+data
