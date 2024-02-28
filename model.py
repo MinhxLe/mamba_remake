@@ -32,7 +32,6 @@ def K_conv(Ab, Bb, Cb, L):
 
 
 class _SSMLayer(nn.Module):
-    E: int
     N: int
     l_max: int
     decode: bool = False
@@ -40,9 +39,9 @@ class _SSMLayer(nn.Module):
     def setup(self):
         # SSM parameters
         self.A = self.param("A", lecun_normal(), (self.N, self.N))
-        self.B = self.param("B", lecun_normal(), (self.N, self.E))
-        self.C = self.param("C", lecun_normal(), (self.E, self.N))
-        self.D = self.param("D", nn.initializers.ones, (self.E,))
+        self.B = self.param("B", lecun_normal(), (self.N, 1))
+        self.C = self.param("C", lecun_normal(), (1, self.N))
+        self.D = self.param("D", nn.initializers.ones, (1,))
 
         self.K = K_conv(self.A, self.B, self.C, self.l_max)
 
