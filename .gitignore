@@ -4,5 +4,9 @@ __pycache__/
 # data
 *.pkl
 *.bin
+*.swp
 .ruff_cache/
 input.txt
+
+venvmamba
+data
