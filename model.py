@@ -2,7 +2,7 @@ import jax
 import jax.numpy as np
 from flax import linen as nn
 from jax.nn.initializers import lecun_normal
-from jax.numpy.linalg import matrix_power
+from jax.numpy.linalg import eigh, matrix_power
 from jax.scipy.signal import convolve
 
 
@@ -29,6 +29,9 @@ def scan_SSM(Ab, Bb, Cb, u, x0):
 
 def K_conv(Ab, Bb, Cb, L):
     return np.array([(Cb @ matrix_power(Ab, l) @ Bb).reshape() for l in range(L)])
+
+
+# == SSM ==
 
 
 class _SSMLayer(nn.Module):
@@ -75,6 +78,73 @@ def cloneLayer(layer):
 
 # for feature dimension
 SSMLayer = cloneLayer(_SSMLayer)
+
+
+# == S4 ==
+
+
+# Factory for constant initializer in Flax
+def init(x):
+    # Flax Module declare params as
+    # A = self.param("A", init_func, shape)
+    # init_func takes a prng key and rest of the args from param (usually shape)
+    # So this init function will create the param with value (const) x
+    def _init(key, shape):
+        assert shape == x.shape
+        return x
+
+    return _init
+
+
+def make_HiPPO(N):
+    P = np.sqrt(1 + 2 * np.arange(N))
+    A = P[:, np.newaxis] * P[np.newaxis, :]
+    A = np.tril(A) - np.diag(np.arange(N))
+    return A
+
+
+def make_DPLR_HiPPO(N):
+    """Diagonalize NPLR representation"""
+    A = make_HiPPO(N)
+    # Q = P , so only P is needed
+    P = np.sqrt(np.arange(N) + 0.5)
+    # HiPPO also specifies the B matrix
+    B = np.sqrt(2 * np.arange(N) + 1.0)
+
+    # S[i, j] = -0.5                     if i=j
+    #         =  sqrt((2i+1)*(2j+1))/2   if j < j
+    #         = -sqrt((2i+1)*(2j+1))/2  if j > j
+    # So S is skew-symmetry (S^* = -S), and thus S is normal
+    # https://en.wikipedia.org/wiki/Normal_matrix
+    S = -A + P[:, np.newaxis] * P[np.newaxis, :]
+
+    # todo: S_diag is constant (-0.5), not sure why we take mean here
+    S_diag = np.diagonal(S)
+    Lambda_real = np.mean(S_diag) * np.ones_like(S_diag)
+    # assert np.allclose(Lambda_real, S_diag, atol=1e-3)
+
+    # (1) Diagonalize S to V \Lambda V^*
+    #  -> V is columns of eigenvectors of S, Lambda is diagonal of eigenvalues
+    # (2) We want to apply eigh: getting eigenvectors of Hermitian matrix.
+    #     Hermitian matrix: equals to its conjugate transpose
+    #     eigh is better (e.g. GPU support) than vanilla eig
+    # (3) S is skew-sym, so (S without diagonal part) * i is Hermitian
+    S_wo_diagonal = S - np.diag(np.diagonal(S))
+    Lambda_imag, V = eigh(S_wo_diagonal * -1j)
+    # With this:
+    # (1) V @ diag(Lambda_imag) @ V^* = S_wo_diagonal * -1j (what eigh was for)
+    # (2) Lambda_real is -0.5 * I, so V @ diag(Lambda_real) @ V^* = -0.5 *I (V is unitary) = S's diagonal part
+    # combine => V @ diag(Lambda + Lambda_imag * i) @ V^* = S
+    assert np.allclose(
+        S, V @ np.diag(Lambda_real + Lambda_imag * 1j) @ V.conj().T, atol=1e-3
+    )
+
+    P = V.conj().T @ P
+    B = V.conj().T @ B
+    return Lambda_real + 1j * Lambda_imag, P, B, V
+
+
+# ===== Layer agnostic below (the model)
 
 
 class SequenceBlock(nn.Module):
