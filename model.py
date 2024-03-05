@@ -68,7 +68,7 @@ class _SSMLayer(nn.Module):
         step = np.exp(self.log_step)
         self.ssm = discretize(self.A, self.B, self.C, step=step)
 
-        #self.K = K_conv(self.A, self.B, self.C, self.l_max)
+        # self.K = K_conv(self.A, self.B, self.C, self.l_max)
         self.K = K_conv(*self.ssm, self.l_max)
 
         # RNN cache for long sequences
@@ -163,18 +163,18 @@ def make_DPLR_HiPPO(N):
         S, V @ np.diag(Lambda_real + Lambda_imag * 1j) @ V.conj().T, atol=1e-3
     )
 
-    # So we have: 
+    # So we have:
     # -A = S - P P^*                  -> NPLR
     #    = V Lambda V^* - P P^*
-    #    = V ( Lambda - Q Q^* ) V^*    where Q = V^* P, 
+    #    = V ( Lambda - Q Q^* ) V^*    where Q = V^* P,
     # So A can be conjugated to Lambda - Q Q^*  -> DPLR diagonal plus low rank
     # Since SSM is equivalent under conjugation: A -> V^*AV, B -> V^* B
-    # We have the DPLR SSM: 
-    # A' = Lambda - Q Q^*   where Q = V^* P 
+    # We have the DPLR SSM:
+    # A' = Lambda - Q Q^*   where Q = V^* P
     # B' = V^* B
 
     P = V.conj().T @ P  # The Q above
-    B = V.conj().T @ B  # B' 
+    B = V.conj().T @ B  # B'
     return Lambda_real + 1j * Lambda_imag, P, B, V
 
 
@@ -185,9 +185,9 @@ def hippo_initializer(N):
 
 def discrete_DPLR(Lambda, P, Q, B, C, step, L):
     """With DPLR structure, discretizing SSM doesn't need to do inverse
-       because DPLR inverse is also DPLR
+    because DPLR inverse is also DPLR
 
-       => S4 recurrence is O(N) per step where N is state dim
+    => S4 recurrence is O(N) per step where N is state dim
     """
     # Convert parameters to matrices
     B = B[:, np.newaxis]
@@ -225,19 +225,19 @@ def cauchy(v, omega, lambd):
 
 def kernel_DPLR(Lambda, P, Q, B, C, step, L):
     """Given: DPLR SSM with A = Lambda - PQ^*
-       Returns the conv kernel K_bar
- 
-       1) conv kernel K_bar can be efficiently computed by inverse FFT of
-       truncated generating function (z-transform) of the kernel
+    Returns the conv kernel K_bar
 
-       2) truncated (only L terms) generating function:
-       \sigma_{i=0}^{L-1} C_b A_b^i B_b z^i = Ct (I - A_b z)^-1 B_bar
-       has only one DPLR matrix inverse , no matrix power needed.
-       DPLR inverse can be computed efficiently by:
-       3) Apply Woodbury Identity: inverse of DPLR -> inverse of diagonal
-       4) The result can be simplied to "Cauchy kernel", stable and fast
+    1) conv kernel K_bar can be efficiently computed by inverse FFT of
+    truncated generating function (z-transform) of the kernel
 
-       => computing kernel is O(N+L)
+    2) truncated (only L terms) generating function:
+    \sigma_{i=0}^{L-1} C_b A_b^i B_b z^i = Ct (I - A_b z)^-1 B_bar
+    has only one DPLR matrix inverse , no matrix power needed.
+    DPLR inverse can be computed efficiently by:
+    3) Apply Woodbury Identity: inverse of DPLR -> inverse of diagonal
+    4) The result can be simplied to "Cauchy kernel", stable and fast
+
+    => computing kernel is O(N+L)
     """
     # Evaluate at roots of unity
     # Generating function is (-)z-transform, so we evaluate at (-)root
