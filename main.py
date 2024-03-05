@@ -9,7 +9,7 @@ from omegaconf import DictConfig
 from tqdm import tqdm
 
 from data import Datasets
-from model import BatchStackedModel, SSMLayer
+from model import BatchStackedModel, SSMLayer, S4Layer
 
 DEBUG_MODE = False
 
@@ -32,26 +32,28 @@ if DEBUG_MODE:
 else:
     dataset = "mnist-classification"
     trainloader, testloader, n_classes, l_max, d_input = Datasets[dataset]()
-    num_epochs = 10
+    num_epochs = 1
     MODEL_CONFIG = dict(
-        d_model=128,
-        n_layers=64,
+        d_model=1,
+        n_layers=2,
         dropout=0.0,
         embedding=False,
         layer=DictConfig(
             dict(
-                N=64,
+                N=10,
                 l_max=l_max,
             )
         ),
     )
+
+layer_class = S4Layer if True else SSMLayer
 classification = ("classification" in dataset,)
 key = jax.random.PRNGKey(0)
 key, rng, train_rng = jax.random.split(key, num=3)
 # initalizing the model
 model_cls = partial(
     BatchStackedModel,
-    layer_cls=SSMLayer,
+    layer_cls=layer_class,
     d_output=n_classes,
     classification=classification,
     **MODEL_CONFIG,
@@ -207,3 +209,4 @@ for epoch in range(num_epochs):
     test_loss, test_acc = validate(
         state.params, model_cls, testloader, classification=classification
     )
+    print(f"test loss: {test_loss}, acc: {test_acc}")

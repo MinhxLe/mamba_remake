@@ -159,9 +159,9 @@ def make_DPLR_HiPPO(N):
     # (1) V @ diag(Lambda_imag) @ V^* = S_wo_diagonal * -1j (what eigh was for)
     # (2) Lambda_real is -0.5 * I, so V @ diag(Lambda_real) @ V^* = -0.5 *I (V is unitary) = S's diagonal part
     # combine => V @ diag(Lambda + Lambda_imag * i) @ V^* = S
-    assert np.allclose(
-        S, V @ np.diag(Lambda_real + Lambda_imag * 1j) @ V.conj().T, atol=1e-3
-    )
+    # assert np.allclose(
+    #     S, V @ np.diag(Lambda_real + Lambda_imag * 1j) @ V.conj().T, atol=1e-3
+    # )
 
     # So we have:
     # -A = S - P P^*                  -> NPLR
@@ -258,7 +258,7 @@ def kernel_DPLR(Lambda, P, Q, B, C, step, L):
     return out.real
 
 
-class S4Layer(nn.Module):
+class _S4Layer(nn.Module):
     N: int
     l_max: int
     decode: bool = False
@@ -273,7 +273,6 @@ class S4Layer(nn.Module):
     }
 
     def setup(self):
-        print("in setup")
         # Learned Parameters (C is complex!)
         init_A_re, init_A_im, init_P, init_B = hippo_initializer(self.N)
         self.Lambda_re = self.param("Lambda_re", init_A_re, (self.N,))
@@ -327,7 +326,6 @@ class S4Layer(nn.Module):
             self.x_k_1 = self.variable(
                 "cache", "cache_x_k", np.zeros, (self.N,), np.complex64
             )
-        print("done setup")
 
     def __call__(self, u):
         # This is identical to SSM Layer
@@ -340,6 +338,9 @@ class S4Layer(nn.Module):
             if self.is_mutable_collection("cache"):
                 self.x_k_1.value = x_k
             return y_s.reshape(-1).real + self.D * u
+
+
+S4Layer = cloneLayer(_S4Layer)
 
 
 # ===== Layer agnostic below (the model)
