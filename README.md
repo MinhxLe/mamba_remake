@@ -1,2 +1,1 @@
-# Project set up
-1. Add `ruff format && ruff check` to `.git/hooks/pre-commit`.
+This was a remake of S4 to learn Jax. Most of the code was copied from srush annotated s4 (ahttps://srush.github.io/annotated-s4/) with the goal of reproducing the results of S4 on MNIST. It's a toy example but we all start somewhere. "¯\_(ツ)\_/¯
