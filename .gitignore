@@ -10,3 +10,7 @@ input.txt
 
 venvmamba
 data
+
+.jax_cache/
+checkpoints/
+memory.prof

@@ -1,22 +1,26 @@
+import datetime
+import os
 from functools import partial
 
 import flax
 import jax
+import jax.profiler
 import optax
-from flax.training import train_state
+import orbax.checkpoint as ocp
+from flax.training import orbax_utils, train_state
 from jax import numpy as np
 from omegaconf import DictConfig
 from tqdm import tqdm
 
 from data import Datasets
-from model import BatchStackedModel, SSMLayer
+from model import BatchStackedModel, S4Layer, SSMLayer
 
 DEBUG_MODE = False
 
 if DEBUG_MODE:
     dataset = "sin"
     trainloader, testloader, n_classes, l_max, d_input = Datasets[dataset]()
-    num_epochs = 1
+    num_epochs = 10
     MODEL_CONFIG = dict(
         d_model=8,
         n_layers=2,
@@ -32,10 +36,9 @@ if DEBUG_MODE:
 else:
     dataset = "mnist-classification"
     trainloader, testloader, n_classes, l_max, d_input = Datasets[dataset]()
-    num_epochs = 10
     MODEL_CONFIG = dict(
         d_model=128,
-        n_layers=64,
+        n_layers=4,
         dropout=0.0,
         embedding=False,
         layer=DictConfig(
@@ -45,13 +48,23 @@ else:
             )
         ),
     )
+
+TRAIN_CONFIG = DictConfig(
+    dict(
+        checkpoint=True,
+        sample=True,
+        num_epochs=10,
+    )
+)
+
+layer_class = S4Layer if True else SSMLayer
 classification = ("classification" in dataset,)
 key = jax.random.PRNGKey(0)
 key, rng, train_rng = jax.random.split(key, num=3)
 # initalizing the model
 model_cls = partial(
     BatchStackedModel,
-    layer_cls=SSMLayer,
+    layer_cls=layer_class,
     d_output=n_classes,
     classification=classification,
     **MODEL_CONFIG,
@@ -173,9 +186,19 @@ def train_step(state, rng, batch_inputs, batch_labels, model, classification=Fal
 
     grad_fn = jax.value_and_grad(loss_fn, has_aux=True)
     (loss, (logits, acc)), grads = grad_fn(state.params)
-    print(loss)
     state = state.apply_gradients(grads=grads)
     return state, loss, acc
+
+
+options = ocp.CheckpointManagerOptions(
+    max_to_keep=TRAIN_CONFIG.num_epochs,
+    create=True,
+)
+ckpt_mngr = ocp.CheckpointManager(
+    f"/tmp/checkpoints/{dataset}",
+    options=options,
+    item_names=("state",),
+)
 
 
 state = create_train_state(
@@ -184,7 +207,7 @@ state = create_train_state(
     trainloader,
     lr=5e-3,
 )
-for epoch in range(num_epochs):
+for epoch in range(TRAIN_CONFIG.num_epochs):
     print(f"[*] Starting Training Epoch {epoch + 1}...")
     model = model_cls(training=True)
     batch_losses, batch_accuracies = [], []
@@ -207,3 +230,16 @@ for epoch in range(num_epochs):
     test_loss, test_acc = validate(
         state.params, model_cls, testloader, classification=classification
     )
+    print(f"test loss: {test_loss}, acc: {test_acc}")
+
+    # TODO save configs used for training
+    # TODO add saving logs
+    if TRAIN_CONFIG.checkpoint:
+        ckpt_mngr.save(
+            epoch,
+            args=ocp.args.Composite(
+                state=ocp.args.StandardSave(state),
+            ),
+        )
+        ckpt_mngr.wait_until_finished()
+# checkpoint saving

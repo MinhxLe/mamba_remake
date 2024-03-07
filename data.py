@@ -100,7 +100,7 @@ def create_sin_ax_b_dataset(n_examples=20000, bsz=128):
 # ### MNIST Sequence Modeling
 # **Task**: Predict next pixel value given history, in an autoregressive fashion (784 pixels x 256 values).
 #
-def create_mnist_dataset(bsz=128):
+def create_mnist_dataset(bsz=32):
     print("[*] Generating MNIST Sequence Modeling Dataset...")
 
     # Constants
